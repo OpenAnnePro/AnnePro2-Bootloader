@@ -18,24 +18,27 @@ KEY_RESERVED = 0;
 KEY_IAP_MODE = 1;
 KEY_IAP_GET_MODE = 2;
 KEY_IAP_GET_FW_VERSION = 3;
-KEY_IAP_WIRTE_MEMORY = 49;
-KEY_IAP_WRITE_AP_FLAG = 50;
-KEY_IAP_ERASE_MEMORY = 67;
+KEY_IAP_WIRTE_MEMORY = 49; // 0x31
+KEY_IAP_WRITE_AP_FLAG = 50; // 0x32
+KEY_IAP_ERASE_MEMORY = 67; // 0x43
 
 function generateData(source, targetDevice, dataToSend) {
     const packedHostTarget = (targetDevice << 4) + source;
-    var data = [123, 16, packedHostTarget, 16, dataToSend.length, 0, 0, 125];
+    var data = [0x7b, 0x10, packedHostTarget, 0x10, dataToSend.length, 0, 0, 0x7d];
     data.unshift(0); 
     return data.concat(dataToSend)
 }
 
 function execWrite(usbAddress, t, a = false) {
     return new Promise((accept, reject) => {
-        if (a) try {
-            m.write(t), accept()
-        } catch (e) {
-            log.error('write failed.'), d.printHex('Write failed for data:', t), reject(e.message)
-        } else {
+        if (a) 
+            try {
+                m.write(t), accept()
+            } catch (e) {
+                log.error('write failed.'), d.printHex('Write failed for data:', t), reject(e.message)
+            }
+        else 
+        {
             const a = setTimeout(() => {
                 d.printHex('Write timeout for data:', t), reject('write timeout')
             }, 3e3);
@@ -53,13 +56,17 @@ function execWrite(usbAddress, t, a = false) {
 
 function writeHostToTarget(targetDevice, firmwareStruct, a = false) { // a is false, not passed in
     const usbAddress = `${l.sourceDist(targetDevice,l.DistSource.USB_HOST)}-${firmwareStruct[0]}-${firmwareStruct[1]}`,
-        data = l.generateData(l.DistSource.USB_HOST, targetDevice, firmwareStruct);
+        data = generateData(l.DistSource.USB_HOST, targetDevice, firmwareStruct);
     return execWrite(usbAddress, data, a)
 }
 
 
 function iapWriteMemory(targetDevice, address, chunk) {
-    return s.writeHostToTarget(targetDevice, [c.L2_CMD.FW, p.KEY_IAP_WIRTE_MEMORY].concat(address, chunk))
+    return writeHostToTarget(targetDevice, [c.L2_CMD.FW, p.KEY_IAP_WIRTE_MEMORY].concat(address, chunk))
+}
+
+function iapEraseMemory(targetDevice, DwAddrLe) {
+    return writeHostToTarget(targetDevice, [c.L2_CMD.FW, p.KEY_IAP_ERASE_MEMORY].concat(DwAddrLe))
 }
 
 t.writeFireware = async function(targetDevice, firmwareBinary, a) {
@@ -72,7 +79,8 @@ t.writeFireware = async function(targetDevice, firmwareBinary, a) {
             const firmwareLength = firmwareBinary.length,
             s = await i.iapGetFwVersion();
             let startAddress;
-            startAddress = targetDevice === l.DistSource.MCU_MAIN ? s.slice(2, 6) : targetDevice === l.DistSource.MCU_LED ? s.slice(12, 16) : targetDevice === l.DistSource.MCU_BLE ? s.slice(22, 26) : [], await i.iapEraseMemory(targetDevice, startAddress);
+            startAddress = targetDevice === l.DistSource.MCU_MAIN ? s.slice(2, 6) : targetDevice === l.DistSource.MCU_LED ? s.slice(12, 16) : targetDevice === l.DistSource.MCU_BLE ? s.slice(22, 26) : [];
+            await iapEraseMemory(targetDevice, startAddress);
             const p = Math.ceil(firmwareLength / chunkSize),
             firmwareUneventDivideBytes = firmwareLength % chunkSize;
             console.log('startAddress:', startAddress);
