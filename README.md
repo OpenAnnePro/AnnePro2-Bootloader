@@ -6,6 +6,9 @@ controller IC (U2). This is the code that runs when you boot the uController whi
 The `bootloader.bin` file is a direct dump of the flash content. Meanwhile the `bootloader.idb` is an IDA database
 for my current reversing work.
 
+The `writeFirmware.js` is largely copy-pasta from the Windows distribution of ObinsKit app. It contains the important routines
+for firmware download through the Obins IAP. I will soon<sup>TM</sup> write a tool for flashing file onto the Anne Pro 2 as a POC.
+
 # Other Resources
 Look around in this Github Org it has all kind of information about the Anne Pro 2. Inclduing a copy of my current reversing
 schematics.
